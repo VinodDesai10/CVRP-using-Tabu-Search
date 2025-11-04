@@ -1,0 +1,1411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-g">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CVRP Hybrid Solver</title>
+    
+    <!-- 1. Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- 2. Load Chart.js (Version 2.9.4) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.9.4/Chart.min.js"></script>
+    
+    <!-- 3. Load jsPDF (for PDF export) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    
+    <!-- 4. NEW: Custom Styles for Glassmorphism & Animations -->
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+        
+        /* Custom font */
+        body {
+            font-family: 'Inter', sans-serif;
+            min-height: 100vh;
+        }
+        
+        /* Animated gradient background */
+        @keyframes gradient-shift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(-45deg, #667eea, #764ba2, #f093fb, #4facfe);
+            background-size: 400% 400%;
+            animation: gradient-shift 15s ease infinite;
+            z-index: -1;
+            opacity: 0.9;
+        }
+        
+        /* Glassmorphism effect */
+        .glass-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+        
+        /* Enhanced spinner */
+        .loader {
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-top-color: #667eea;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* Pulse animation for run button */
+        @keyframes pulse-glow {
+            0%, 100% { box-shadow: 0 0 20px rgba(102, 126, 234, 0.4); }
+            50% { box-shadow: 0 0 30px rgba(102, 126, 234, 0.8); }
+        }
+        
+        .pulse-btn:not(:disabled) {
+            animation: pulse-glow 2s ease-in-out infinite;
+        }
+        
+        /* Make tabs non-selectable */
+        .tab-btn {
+            user-select: none;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+        
+        .tab-btn::after {
+            content: '';
+            position: absolute;
+            bottom: -1px; /* Align with border */
+            left: 50%;
+            width: 0;
+            height: 2px;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            transition: all 0.3s ease;
+            transform: translateX(-50%);
+        }
+        
+        .tab-btn.active {
+            color: #667eea; /* Active text color */
+        }
+        
+        .tab-btn.active::after {
+            width: 100%;
+        }
+        
+        /* Enhanced dropzone */
+        .dropzone {
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .dropzone::before {
+            content: '';
+            position: absolute;
+            top: -2px;
+            left: -2px;
+            right: -2px;
+            bottom: -2px;
+            background: linear-gradient(45deg, #667eea, #764ba2, #f093fb, #4facfe);
+            border-radius: 0.5rem;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            z-index: -1;
+        }
+        
+        .dropzone-active::before {
+            opacity: 1;
+        }
+        
+        .dropzone-active {
+            border-color: transparent;
+            background: rgba(102, 126, 234, 0.05);
+            transform: scale(1.02);
+        }
+        
+        /* Enhanced delete button */
+        .delete-btn {
+            color: #ef4444;
+            font-weight: 500;
+            font-size: 0.875rem;
+            margin-left: auto;
+            padding: 0.25rem 0.75rem;
+            border-radius: 0.375rem;
+            transition: all 0.2s ease;
+            border: 1px solid transparent;
+        }
+        .delete-btn:hover {
+            color: #dc2626;
+            background: linear-gradient(135deg, #fee2e2, #fecaca);
+            border-color: #ef4444;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
+        }
+        
+        /* Enhanced input fields */
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        /* Fade in animation */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .fade-in {
+            animation: fadeIn 0.5s ease forwards;
+        }
+        
+        /* List item animations */
+        .list-item {
+            transition: all 0.2s ease;
+        }
+        
+        .list-item:hover {
+            background: rgba(102, 126, 234, 0.05);
+            transform: translateX(4px);
+        }
+        
+        /* Button hover effects */
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            transition: all 0.3s ease;
+        }
+        
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn-primary:active:not(:disabled) {
+            transform: translateY(0);
+        }
+        
+        /* Header gradient text */
+        .gradient-text {
+            background: linear-gradient(135deg, #667eea 0%, #f093fb 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        /* Smooth scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.05);
+            border-radius: 10px;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            border-radius: 10px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(135deg, #764ba2, #667eea);
+        }
+        
+        /* Number badge animation */
+        @keyframes badge-pop {
+            0% { transform: scale(0.8); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+        
+        .badge {
+            animation: badge-pop 0.3s ease;
+        }
+        
+        /* Alert animation */
+        @keyframes slideDown {
+            from { transform: translateY(-100%); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        
+        .alert-slide {
+            animation: slideDown 0.3s ease forwards;
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+
+    <!-- The ::before pseudo-element on <body> creates the background -->
+
+    <div class="max-w-7xl mx-auto glass-card rounded-lg overflow-hidden">
+        <header class="p-6 border-b border-white border-opacity-20">
+            <h1 class="text-3xl font-bold gradient-text">Hybrid CVRP Solver</h1>
+            <p class="text-gray-700">Based on the paper by Hernández-Aguilar et al. (2025)</p>
+        </header>
+
+        <div class="md:flex">
+            <!-- === LEFT COLUMN (Controls) === -->
+            <aside class="w-full md:w-1/3 p-6 border-r border-white border-opacity-20">
+                
+                <!-- === Input Method Tabs === -->
+                <div class="mb-4">
+                    <h2 class="text-xl font-semibold text-gray-700 mb-3">1. Input Method</h2>
+                    <div class="flex border-b border-gray-200">
+                        <button id="input-tab-file" class="tab-btn flex-1 py-2 px-4 text-sm font-medium text-center text-gray-800 active">
+                            File Upload
+                        </button>
+                        <button id="input-tab-manual" class="tab-btn flex-1 py-2 px-4 text-sm font-medium text-center text-gray-500 hover:text-gray-800">
+                            Manual Entry
+                        </button>
+                    </div>
+                </div>
+
+                <!-- === File Upload Content === -->
+                <div id="input-content-file" class="space-y-6 fade-in">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Upload .vrp File</label>
+                        <label id="dropzone" for="file-upload" class="dropzone flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-white bg-opacity-50 hover:bg-opacity-75 transition">
+                            <div class="flex flex-col items-center justify-center pt-5 pb-6">
+                                <svg class="w-8 h-8 mb-3 text-gray-500" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 16"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2"/></svg>
+                                <p id="dropzone-text" class="mb-2 text-sm text-gray-500 text-center"><span class="font-semibold">Click to upload</span> or drag and drop</p>
+                                <p id="dropzone-filename" class="text-xs text-blue-600 font-semibold"></p>
+                            </div>
+                            <input id="file-upload" type="file" class="hidden" accept=".vrp" />
+                        </label>
+                    </div>
+                </div>
+
+                <!-- === Manual Entry Content === -->
+                <div id="input-content-manual" class="hidden divide-y divide-gray-200 fade-in">
+                    <!-- Depot -->
+                    <div class="pb-4">
+                        <h2 class="text-lg font-semibold text-gray-700 mb-3">Add Depot</h2>
+                        <div class="grid grid-cols-2 gap-2 mb-2">
+                            <div>
+                                <label for="depot-x" class="block text-sm font-medium text-gray-700">Depot X</label>
+                                <input type="number" id="depot-x" value="50" class="mt-1 w-full p-2 border border-gray-300 rounded-md shadow-sm text-sm">
+                            </div>
+                            <div>
+                                <label for="depot-y" class="block text-sm font-medium text-gray-700">Depot Y</label>
+                                <input type="number" id="depot-y" value="50" class="mt-1 w-full p-2 border border-gray-300 rounded-md shadow-sm text-sm">
+                            </div>
+                        </div>
+                    </div>
+    
+                    <!-- Fleet Management -->
+                    <div class="py-4">
+                        <h2 class="text-lg font-semibold text-gray-700 mb-3">Add Fleet</h2>
+                        <div class="flex items-center space-x-2 mb-3">
+                            <input type="number" id="vehicle-capacity" placeholder="Vehicle Capacity" class="flex-grow p-2 border border-gray-300 rounded-md shadow-sm text-sm">
+                            <button id="add-vehicle-btn" class="px-3 py-2 btn-primary text-white rounded-md shadow-sm text-sm font-medium">Add</button>
+                        </div>
+                        <ul id="vehicle-list" class="text-sm text-gray-700 space-y-1 max-h-24 overflow-y-auto">
+                            <!-- Vehicles will be added here -->
+                        </ul>
+                    </div>
+    
+                    <!-- Customer Management -->
+                    <div class="py-4">
+                        <h2 class="text-lg font-semibold text-gray-700 mb-3">Add Customers</h2>
+                        <div class="grid grid-cols-3 gap-2 mb-2">
+                            <input type="number" id="cust-x" placeholder="X" class="w-full p-2 border border-gray-300 rounded-md shadow-sm text-sm">
+                            <input type="number" id="cust-y" placeholder="Y" class="w-full p-2 border border-gray-300 rounded-md shadow-sm text-sm">
+                            <input type="number" id="cust-demand" placeholder="Demand" class="w-full p-2 border border-gray-300 rounded-md shadow-sm text-sm">
+                        </div>
+                        <button id="add-customer-btn" class="w-full mb-3 px-3 py-2 btn-primary text-white rounded-md shadow-sm text-sm font-medium">Add Customer</button>
+                        <ul id="customer-list" class="text-sm text-gray-700 space-y-1 max-h-32 overflow-y-auto">
+                            <!-- Customers will be added here -->
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Parameters (Shared) -->
+                <div class="pt-6">
+                    <h2 class="text-xl font-semibold text-gray-700 mb-3">2. Parameters</h2>
+                    <div class="mb-4">
+                        <label for="iterations" class="block text-sm font-medium text-gray-700">Tabu Iterations</label>
+                        <input type="number" id="iterations" value="200" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none sm:text-sm">
+                    </div>
+                    <div class="mb-6">
+                        <label for="tenure" class="block text-sm font-medium text-gray-700">Tabu Tenure</label>
+                        <input type="number" id="tenure" value="10" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none sm:text-sm">
+                    </div>
+
+                    <!-- Run Button -->
+                    <button id="run-solver" class="w-full flex items-center justify-center px-4 py-2 btn-primary text-white font-semibold rounded-lg shadow-md transition disabled:opacity-50 pulse-btn" disabled>
+                        <svg id="run-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5 mr-2">
+                            <path fill-rule="evenodd" d="M2 10a8 8 0 1116 0 8 8 0 01-16 0zm6.39-2.908a.75.75 0 01.766.027l3.5 2.25a.75.75 0 010 1.262l-3.5 2.25A.75.75 0 018 12.25v-4.5a.75.75 0 01.39-.658z" clip-rule="evenodd" />
+                        </svg>
+                        <div id="loader" class="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-5 w-5 mr-2 hidden"></div>
+                        <span id="run-text">Run Solver</span>
+                    </button>
+                </div>
+            </aside>
+
+            <!-- === RIGHT COLUMN (Results) === -->
+            <main class="w-full md:w-2/3 p-6">
+                <h2 class="text-xl font-semibold text-gray-700 mb-4">Results</h2>
+                
+                <!-- Tabs -->
+                <div class="mb-4 border-b border-gray-200">
+                    <nav class="-mb-px flex space-x-8" aria-label="Tabs">
+                        <button id="tab-cost-plot" class="tab-btn py-4 px-1 whitespace-nowrap text-sm font-medium text-gray-800 active">Cost Plot</button>
+                        <button id="tab-route-plot" class="tab-btn py-4 px-1 whitespace-nowrap text-sm font-medium text-gray-500 hover:text-gray-800">Route Plot</button>
+                        <button id="tab-summary" class="tab-btn py-4 px-1 whitespace-nowrap text-sm font-medium text-gray-500 hover:text-gray-800">Solver Log</button>
+                    </nav>
+                </div>
+                
+                <!-- Alert Box -->
+                <div id="alert-box" class="hidden p-4 mb-4 text-sm text-red-900 bg-red-100 rounded-lg shadow-md border border-red-200 alert-slide" role="alert">
+                    <span class="font-medium">Error!</span> <span id="alert-text"></span>
+                </div>
+
+                <!-- Cost Plot Tab Content -->
+                <div id="content-cost-plot" class="tab-content fade-in">
+                    <p id="cost-plot-placeholder" class="text-gray-500 text-center py-12">Choose an input method, provide data, and run the solver.</p>
+                    <canvas id="cost-chart"></canvas>
+                </div>
+
+                <!-- Route Plot Tab Content -->
+                <div id="content-route-plot" class="tab-content hidden fade-in">
+                    <p id="route-plot-placeholder" class="text-gray-500 text-center py-12">Solution routes will appear here after the solver finishes.</p>
+                    <canvas id="solution-chart"></canvas>
+                    <button id="download-pdf-btn" class="hidden mt-4 w-full flex items-center justify-center px-4 py-2 btn-primary text-white font-semibold rounded-lg shadow-md transition">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5 mr-2">
+                            <path d="M10.75 2.75a.75.75 0 00-1.5 0v8.614L6.295 8.23a.75.75 0 00-1.09 1.03l4.25 4.5a.75.75 0 001.09 0l4.25-4.5a.75.75 0 00-1.09-1.03l-2.955 3.134V2.75z" />
+                            <path d="M3.5 12.75a.75.75 0 00-1.5 0v2.5A2.75 2.75 0 004.75 18h10.5A2.75 2.75 0 0018 15.25v-2.5a.75.75 0 00-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5z" />
+                        </svg>
+                        Download Route Plot as PDF
+                    </button>
+                </div>
+
+                <!-- Summary Tab Content -->
+                <div id="content-summary" class="tab-content hidden fade-in">
+                    <pre id="summary-text" class="text-sm bg-gray-900 text-white p-4 rounded-lg overflow-x-auto">Run the solver to see the cost summary.</pre>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- === JAVASCRIPT LOGIC === -->
+    <script>
+        // --- Global Variables ---
+        let inputMode = 'file'; // 'file' or 'manual'
+        let vrpFile = null;
+        let manualDepot = null;
+        let manualVehicles = []; // Stores { id: 1, capacity: 100 }
+        let manualCustomers = []; // Stores Customer objects
+        let manualCustomerCounter = 2; // Depot is 1
+        
+        let routeSolutionChart = null;
+        let costChart = null;
+        let datalabelPluginRegistered = false;
+
+        // --- DOM Elements ---
+        const runButton = document.getElementById('run-solver');
+        const runText = document.getElementById('run-text');
+        const runIcon = document.getElementById('run-icon');
+        const loader = document.getElementById('loader');
+        
+        const iterInput = document.getElementById('iterations');
+        const tenureInput = document.getElementById('tenure');
+        
+        const tabCostPlot = document.getElementById('tab-cost-plot');
+        const tabRoutePlot = document.getElementById('tab-route-plot');
+        const tabSummary = document.getElementById('tab-summary');
+        
+        const contentCostPlot = document.getElementById('content-cost-plot');
+        const contentRoutePlot = document.getElementById('content-route-plot');
+        const contentSummary = document.getElementById('content-summary');
+        
+        const costPlotPlaceholder = document.getElementById('cost-plot-placeholder');
+        const routePlotPlaceholder = document.getElementById('route-plot-placeholder');
+        const summaryText = document.getElementById('summary-text');
+        
+        const alertBox = document.getElementById('alert-box');
+        const alertText = document.getElementById('alert-text');
+        
+        const downloadPdfBtn = document.getElementById('download-pdf-btn');
+        
+        // Input Mode Elements
+        const inputTabFile = document.getElementById('input-tab-file');
+        const inputTabManual = document.getElementById('input-tab-manual');
+        const inputContentFile = document.getElementById('input-content-file');
+        const inputContentManual = document.getElementById('input-content-manual');
+
+        // File Input Elements
+        const dropzone = document.getElementById('dropzone');
+        const dropzoneText = document.getElementById('dropzone-text');
+        const dropzoneFilename = document.getElementById('dropzone-filename');
+        const fileUpload = document.getElementById('file-upload');
+        
+        // Manual Input Elements
+        const depotXInput = document.getElementById('depot-x');
+        const depotYInput = document.getElementById('depot-y');
+        
+        const vehicleCapacityInput = document.getElementById('vehicle-capacity');
+        const addVehicleBtn = document.getElementById('add-vehicle-btn');
+        const vehicleList = document.getElementById('vehicle-list');
+        
+        const custXInput = document.getElementById('cust-x');
+        const custYInput = document.getElementById('cust-y');
+        const custDemandInput = document.getElementById('cust-demand');
+        const addCustomerBtn = document.getElementById('add-customer-btn');
+        const customerList = document.getElementById('customer-list');
+        
+        // --- Input Mode Tab Logic ---
+        function setInputMode(mode) {
+            inputMode = mode;
+            if (mode === 'file') {
+                inputContentFile.classList.remove('hidden');
+                inputContentManual.classList.add('hidden');
+                inputTabFile.classList.add('active', 'text-gray-800');
+                inputTabFile.classList.remove('text-gray-500', 'hover:text-gray-800');
+                inputTabManual.classList.remove('active', 'text-gray-800');
+                inputTabManual.classList.add('text-gray-500', 'hover:text-gray-800');
+            } else {
+                inputContentFile.classList.add('hidden');
+                inputContentManual.classList.remove('hidden');
+                inputTabManual.classList.add('active', 'text-gray-800');
+                inputTabManual.classList.remove('text-gray-500', 'hover:text-gray-800');
+                inputTabFile.classList.remove('active', 'text-gray-800');
+                inputTabFile.classList.add('text-gray-500', 'hover:text-gray-800');
+            }
+            checkRunButtonStatus();
+        }
+        inputTabFile.addEventListener('click', () => setInputMode('file'));
+        inputTabManual.addEventListener('click', () => setInputMode('manual'));
+        
+        
+        // --- Input Validation ---
+        function checkRunButtonStatus() {
+            if (inputMode === 'file' && vrpFile) {
+                runButton.disabled = false;
+            } else if (inputMode === 'manual' && manualVehicles.length > 0 && manualCustomers.length > 0) {
+                runButton.disabled = false;
+            } else {
+                runButton.disabled = true;
+            }
+        }
+
+        // --- File Upload Logic ---
+        function handleFile(file) {
+            if (file && file.name.endsWith('.vrp')) {
+                vrpFile = file;
+                dropzoneFilename.textContent = file.name;
+                dropzoneText.textContent = 'File selected:';
+                checkRunButtonStatus();
+                hideAlert();
+            } else {
+                showError("Please upload a valid .vrp file.");
+                vrpFile = null;
+                checkRunButtonStatus();
+            }
+        }
+        dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('dropzone-active'); });
+        dropzone.addEventListener('dragleave', (e) => { e.preventDefault(); dropzone.classList.remove('dropzone-active'); });
+        dropzone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropzone.classList.remove('dropzone-active');
+            handleFile(e.dataTransfer.files[0]);
+        });
+        fileUpload.addEventListener('change', (e) => handleFile(e.target.files[0]));
+
+
+        // --- Fleet Management Logic ---
+        addVehicleBtn.addEventListener('click', () => {
+            const capacity = parseInt(vehicleCapacityInput.value);
+            if (capacity > 0) {
+                const vehicleId = manualVehicles.length + 1;
+                manualVehicles.push({ id: vehicleId, capacity: capacity });
+                renderVehicleList();
+                vehicleCapacityInput.value = '';
+                checkRunButtonStatus();
+                hideAlert();
+            } else {
+                showError("Please enter a valid vehicle capacity.");
+            }
+        });
+        
+        function deleteVehicle(vehicleId) {
+            manualVehicles = manualVehicles.filter(v => v.id !== vehicleId);
+            renderVehicleList();
+            checkRunButtonStatus();
+        }
+        
+        function renderVehicleList() {
+            vehicleList.innerHTML = '';
+            // Re-assign IDs for UI consistency
+            manualVehicles.forEach((vehicle, index) => {
+                vehicle.id = index + 1;
+                const li = document.createElement('li');
+                li.className = 'flex items-center justify-between list-item p-1 rounded-md';
+                
+                const span = document.createElement('span');
+                span.textContent = `Vehicle ${vehicle.id} (Capacity: ${vehicle.capacity})`;
+                li.appendChild(span);
+                
+                const deleteBtn = document.createElement('button');
+                deleteBtn.textContent = 'Delete';
+                deleteBtn.className = 'delete-btn';
+                deleteBtn.onclick = () => deleteVehicle(vehicle.id);
+                li.appendChild(deleteBtn);
+                
+                vehicleList.appendChild(li);
+            });
+        }
+
+        // --- Customer Management Logic ---
+        addCustomerBtn.addEventListener('click', () => {
+            const x = parseFloat(custXInput.value);
+            const y = parseFloat(custYInput.value);
+            const demand = parseInt(custDemandInput.value);
+            
+            if (demand > 0 && !isNaN(x) && !isNaN(y)) {
+                
+                if (manualVehicles.length > 0) {
+                    const maxCapacity = Math.max(...manualVehicles.map(v => v.capacity));
+                    if (demand > maxCapacity) {
+                        showError(`Demand (${demand}) is higher than the largest vehicle capacity (${maxCapacity}). Please add a larger vehicle or correct the demand.`);
+                        return;
+                    }
+                }
+
+                const cust = new Customer(manualCustomerCounter, x, y, demand);
+                manualCustomers.push(cust);
+                renderCustomerList();
+                
+                manualCustomerCounter++;
+                custXInput.value = '';
+                custYInput.value = '';
+                custDemandInput.value = '';
+                checkRunButtonStatus();
+                hideAlert();
+            } else {
+                showError("Please enter valid X, Y, and Demand for the customer.");
+            }
+        });
+        
+        function deleteCustomer(customerId) {
+            manualCustomers = manualCustomers.filter(c => c.id !== customerId);
+            renderCustomerList();
+            checkRunButtonStatus();
+        }
+        
+        function renderCustomerList() {
+            customerList.innerHTML = '';
+            manualCustomers.forEach(cust => {
+                const li = document.createElement('li');
+                li.className = 'flex items-center justify-between list-item p-1 rounded-md';
+                
+                const span = document.createElement('span');
+                span.textContent = `C${cust.id}: (${cust.x}, ${cust.y}) - D: ${cust.demand}`;
+                li.appendChild(span);
+                
+                const deleteBtn = document.createElement('button');
+                deleteBtn.textContent = 'Delete';
+                deleteBtn.className = 'delete-btn';
+                deleteBtn.onclick = () => deleteCustomer(cust.id);
+                li.appendChild(deleteBtn);
+                
+                customerList.appendChild(li);
+            });
+        }
+
+
+        // --- Tab Switching Logic (Results) ---
+        function showTab(tabName) {
+            const tabs = [tabCostPlot, tabRoutePlot, tabSummary];
+            const contents = [contentCostPlot, contentRoutePlot, contentSummary];
+            
+            tabs.forEach((tab, index) => {
+                const content = contents[index];
+                if (tab.id === `tab-${tabName}`) {
+                    content.classList.remove('hidden');
+                    tab.classList.add('active', 'text-gray-800');
+                    tab.classList.remove('text-gray-500', 'hover:text-gray-800');
+                } else {
+                    content.classList.add('hidden');
+                    tab.classList.remove('active', 'text-gray-800');
+                    tab.classList.add('text-gray-500', 'hover:text-gray-800');
+                }
+            });
+        }
+        tabCostPlot.addEventListener('click', () => showTab('cost-plot'));
+        tabRoutePlot.addEventListener('click', () => showTab('route-plot'));
+        tabSummary.addEventListener('click', () => showTab('summary'));
+
+        // --- Alert Logic ---
+        function showError(message) {
+            alertText.textContent = message;
+            alertBox.classList.remove('hidden');
+            alertBox.classList.add('alert-slide');
+        }
+        function hideAlert() {
+            alertBox.classList.add('hidden');
+            alertBox.classList.remove('alert-slide');
+        }
+        
+        // --- UI State Logic ---
+        function setSolverState(isRunning) {
+            if (isRunning) {
+                runButton.disabled = true;
+                runButton.classList.remove('pulse-btn');
+                runText.textContent = 'Running...';
+                runIcon.classList.add('hidden');
+                loader.classList.remove('hidden');
+                summaryText.textContent = 'Solver is running. Please wait...';
+                routePlotPlaceholder.textContent = 'Generating solution...';
+                costPlotPlaceholder.textContent = 'Generating cost plot...';
+                
+                downloadPdfBtn.classList.add('hidden');
+                
+                if (routeSolutionChart) {
+                    routeSolutionChart.destroy();
+                }
+                if (costChart) {
+                    costChart.destroy();
+                }
+                showTab('cost-plot');
+            } else {
+                runButton.disabled = false;
+                runButton.classList.add('pulse-btn');
+                runText.textContent = 'Run Solver';
+                runIcon.classList.remove('hidden');
+                loader.classList.add('hidden');
+            }
+        }
+        
+        // --- Cost Chart Logic ---
+        function initializeCostChart() {
+            costPlotPlaceholder.classList.add('hidden');
+            const canvas = document.getElementById('cost-chart');
+            const ctx = canvas.getContext('2d');
+            
+            if (costChart) {
+                costChart.destroy();
+            }
+
+            costChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [
+                        {
+                            label: 'Current Cost',
+                            data: [],
+                            borderColor: 'rgba(54, 162, 235, 0.8)', // Blue
+                            backgroundColor: 'transparent', // No fill
+                            borderWidth: 1.5,
+                            borderDash: [5, 5], // Dashed line
+                            tension: 0.1
+                        },
+                        {
+                            label: 'Best Cost',
+                            data: [],
+                            borderColor: 'rgba(239, 68, 68, 1)', // Red
+                            backgroundColor: 'rgba(239, 68, 68, 0.1)', // Lighter red fill
+                            borderWidth: 2.5, // Thicker line
+                            steppedLine: 'before'
+                        }
+                    ]
+                },
+                options: {
+                    scales: {
+                        xAxes: [{
+                            scaleLabel: {
+                                display: true,
+                                labelString: 'Algorithm Step / Iteration'
+                            }
+                        }],
+                        yAxes: [{
+                            scaleLabel: {
+                                display: true,
+                                labelString: 'Total Cost (Distance)'
+                            }
+                        }]
+                    },
+                    animation: {
+                        duration: 0 // Disable animation for live updates
+                    }
+                }
+            });
+        }
+        
+        function logCostUpdate(label, currentCost, bestCost) {
+            return new Promise(resolve => {
+                costChart.data.labels.push(label);
+                costChart.data.datasets[0].data.push(currentCost);
+                costChart.data.datasets[1].data.push(bestCost);
+                
+                const maxPoints = 500;
+                if(costChart.data.labels.length > maxPoints) {
+                    costChart.data.labels.shift();
+                    costChart.data.datasets[0].data.shift();
+                    costChart.data.datasets[1].data.shift();
+                }
+                
+                costChart.update();
+                setTimeout(resolve, 0); // Yield to event loop
+            });
+        }
+
+        // --- Run Solver Logic ---
+        runButton.addEventListener('click', async () => {
+            setSolverState(true);
+            hideAlert();
+            
+            try {
+                const iterations = parseInt(iterInput.value);
+                const tenure = parseInt(tenureInput.value);
+                
+                const results = [];
+                const log = (message) => results.push(message);
+                
+                initializeCostChart();
+                
+                let problemDepot, problemCustomers, vehicleCapacities, distanceMatrix, allNodes;
+
+                // --- 1. Load Data (Based on Mode) ---
+                if (inputMode === 'file') {
+                    log("Loading instance from file...");
+                    const fileContent = await vrpFile.text();
+                    const problemData = loadCvrpInstance(fileContent, vrpFile.name);
+                    
+                    problemDepot = problemData.depot;
+                    problemCustomers = problemData.customerNodes;
+                    vehicleCapacities = problemData.vehicleCapacities;
+                    distanceMatrix = problemData.distanceMatrix;
+                    allNodes = [problemDepot, ...problemCustomers]; // For plotting
+                    
+                    log(`Loaded ${problemCustomers.length} customers, ${vehicleCapacities.length} vehicles with capacities: [${vehicleCapacities.join(', ')}].`);
+                
+                } else { // inputMode === 'manual'
+                    log("Building problem from UI...");
+                    const problemData = buildProblemFromUI();
+                    
+                    problemDepot = problemData.problemDepot;
+                    problemCustomers = problemData.problemCustomers;
+                    vehicleCapacities = problemData.vehicleCapacities;
+                    distanceMatrix = problemData.distanceMatrix;
+                    allNodes = [problemDepot, ...problemCustomers]; // For plotting
+                    
+                    log(`Loaded ${problemCustomers.length} customers, ${vehicleCapacities.length} vehicles with capacities: [${vehicleCapacities.join(', ')}].`);
+                }
+
+                // --- ADDED: Catch-all Validation for both modes ---
+                const maxCapacity = Math.max(...vehicleCapacities);
+                for (const cust of problemCustomers) {
+                    if (cust.demand > maxCapacity) {
+                        throw new Error(`Customer C${cust.id} has a demand (${cust.demand}) that is too large for any vehicle (Max Capacity: ${maxCapacity}).`);
+                    }
+                }
+                // --- END VALIDATION ---
+
+                // --- 2. Create Initial Solution ---
+                log("\nCreating initial solution...");
+                const initialSolution = createInitialSolution(problemDepot, problemCustomers, vehicleCapacities);
+                const initialCost = calculateSolutionCost(initialSolution, distanceMatrix);
+                log(`Initial Cost: ${initialCost.toFixed(2)}`);
+                await logCostUpdate('Initial', initialCost, initialCost);
+
+                // --- 3. Run Local Search ---
+                log("\nApplying Local Search (Swap)...");
+                const { lsSolution, bestLsCost } = await localSearchBySwapping(initialSolution, vehicleCapacities, distanceMatrix, initialCost, logCostUpdate);
+                log(`Local Search Cost: ${bestLsCost.toFixed(2)}`);
+                
+                // --- 4. Run Tabu Search ---
+                log("\nApplying Tabu Search (Relocation)...");
+                const { tsSolution, tsBestCost } = await simpleTabuSearch(lsSolution, vehicleCapacities, distanceMatrix, iterations, tenure, log, logCostUpdate, bestLsCost);
+                log(`Tabu Search Complete. Final Best Cost: ${tsBestCost.toFixed(2)}`);
+
+                // --- 5. Display Results ---
+                log("\n--- COST SUMMARY ---");
+                log(`Initial Cost:     ${initialCost.toFixed(2)}`);
+                log(`Local Search Cost: ${bestLsCost.toFixed(2)}`);
+                log(`Tabu Search Cost:  ${tsBestCost.toFixed(2)}`);
+                log(`Total Improvement: ${(initialCost - tsBestCost).toFixed(2)}`);
+                
+                summaryText.textContent = results.join('\n');
+                
+                // Pass allNodes for the tooltip logic
+                plotRouteSolution(tsSolution, allNodes, vehicleCapacities);
+                
+                showTab('route-plot');
+
+            } catch (error) {
+                console.error(error);
+                showError(`An error occurred: ${error.message}`);
+            } finally {
+                setSolverState(false);
+            }
+        });
+        
+        // --- PDF Download Logic ---
+        downloadPdfBtn.addEventListener('click', () => {
+            if (routeSolutionChart) {
+                try {
+                    const { jsPDF } = window.jspdf; 
+                    const pdf = new jsPDF('p', 'mm', 'a4');
+                    
+                    const canvas = document.getElementById('solution-chart');
+                    const imgData = canvas.toDataURL('image/png');
+                    
+                    const imgProps = pdf.getImageProperties(imgData);
+                    const pdfWidth = 190;
+                    const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+                    
+                    pdf.addImage(imgData, 'PNG', 10, 10, pdfWidth, pdfHeight);
+                    
+                    let filename = "cvrp_solution_routes.pdf";
+                    if (vrpFile && inputMode === 'file') {
+                        filename = `${vrpFile.name.replace('.vrp', '')}_solution.pdf`;
+                    }
+                    pdf.save(filename);
+                    
+                } catch (e) {
+                    console.error('Error generating PDF:', e);
+                    showError('Could not generate PDF. ' + e.message);
+                }
+            } else {
+                showError('No route plot found to download.');
+            }
+        });
+
+
+        // ==========================================================
+        // === CVRP SOLVER LOGIC (MODIFIED FOR HETEROGENEOUS FLEET) ===
+        // ==========================================================
+        
+        // --- 1. `utils.js` ---
+        class Customer {
+            constructor(id, x, y, demand) {
+                this.id = parseInt(id);
+                this.x = parseFloat(x);
+                this.y = parseFloat(y);
+                this.demand = parseInt(demand);
+            }
+        }
+        
+        function calculateDistance(cust1, cust2) {
+            return Math.sqrt(Math.pow(cust1.x - cust2.x, 2) + Math.pow(cust1.y - cust2.y, 2));
+        }
+
+        function calculateRouteDemand(route) {
+            return route.reduce((sum, customer) => sum + customer.demand, 0);
+        }
+
+        function calculateSolutionCost(solution, distanceMatrix) {
+            let totalCost = 0;
+            for (const route of solution) {
+                for (let i = 0; i < route.length - 1; i++) {
+                    const custA = route[i];
+                    const custB = route[i+1];
+                    totalCost += distanceMatrix[custA.id][custB.id];
+                }
+            }
+            return totalCost;
+        }
+
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+        }
+
+        // --- 2. `data_loader.js` (NOW TWO FUNCTIONS) ---
+        
+        // --- (A) Build from UI ---
+        function buildProblemFromUI() {
+            // Get Depot
+            const depotX = parseFloat(depotXInput.value);
+            const depotY = parseFloat(depotYInput.value);
+            if (isNaN(depotX) || isNaN(depotY)) {
+                throw new Error("Invalid Depot coordinates.");
+            }
+            const problemDepot = new Customer(1, depotX, depotY, 0);
+            
+            // Get Customers (already stored in global `manualCustomers` array)
+            const problemCustomers = [...manualCustomers];
+            
+            // Get Vehicle Capacities (from global `manualVehicles` array)
+            const vehicleCapacities = manualVehicles.map(v => v.capacity);
+            if (vehicleCapacities.length === 0) {
+                throw new Error("No vehicles added to the fleet.");
+            }
+            
+            // Create a combined list for the distance matrix
+            const allNodes = [problemDepot, ...problemCustomers];
+            
+            // Build Distance Matrix
+            const n = allNodes.length;
+            const maxId = Math.max(...allNodes.map(c => c.id));
+            const distanceMatrix = Array(maxId + 1).fill(null).map(() => Array(maxId + 1).fill(0));
+            
+            for (let i = 0; i < n; i++) {
+                for (let j = 0; j < n; j++) {
+                    const custA = allNodes[i];
+                    const custB = allNodes[j];
+                    distanceMatrix[custA.id][custB.id] = calculateDistance(custA, custB);
+                }
+            }
+            
+            return { problemDepot, problemCustomers, vehicleCapacities, distanceMatrix };
+        }
+        
+        // --- (B) Load from .vrp File ---
+        function loadCvrpInstance(fileContent, filename) {
+            let customers = [];
+            let mode = 'HEADER';
+            let dimension = 0;
+            let fileCapacity = 0;
+            let depot = null;
+
+            const lines = fileContent.split('\n');
+
+            for (let line of lines) {
+                line = line.trim();
+                if (!line || line === "EOF") continue;
+
+                if (line.includes("NODE_COORD_SECTION")) { mode = 'COORDS'; continue; }
+                if (line.includes("DEMAND_SECTION")) { mode = 'DEMANDS'; continue; }
+                if (line.includes("DEPOT_SECTION")) { mode = 'DEPOT'; continue; }
+
+                if (mode === 'HEADER') {
+                    if (line.includes("DIMENSION")) {
+                        dimension = parseInt(/(\d+)/.exec(line)[0]);
+                        customers = new Array(dimension + 1).fill(null);
+                    } else if (line.includes("CAPACITY")) {
+                        fileCapacity = parseInt(/(\d+)/.exec(line)[0]);
+                    }
+                } else if (mode === 'COORDS') {
+                    const parts = line.split(/\s+/);
+                    if (parts.length === 3) {
+                        const [id, x, y] = parts.map(Number);
+                        customers[id] = new Customer(id, x, y, 0);
+                    }
+                } else if (mode === 'DEMANDS') {
+                    const parts = line.split(/\s+/);
+                    if (parts.length === 2) {
+                        const [id, demand] = parts.map(Number);
+                        if (customers[id]) {
+                            customers[id].demand = demand;
+                        }
+                    }
+                } else if (mode === 'DEPOT') {
+                    const id = parseInt(line);
+                    if (id === -1) { mode = 'EOF'; continue; }
+                    depot = customers[id];
+                }
+            }
+
+            if (!depot) depot = customers[1]; // Default to 1 if not specified
+            const customerNodes = customers.filter((c, i) => c && i !== depot.id);
+
+            // Create vehicle capacities array
+            let numVehicles = 0;
+            const kMatch = /-k(\d+)/.exec(filename);
+            if (kMatch) {
+                numVehicles = parseInt(kMatch[1]);
+            } else {
+                throw new Error("Could not parse number of vehicles (k-value) from filename.");
+            }
+            
+            // Assume a HOMOGENEOUS fleet from .vrp file
+            const vehicleCapacities = Array(numVehicles).fill(fileCapacity);
+
+            const n = dimension;
+            const distanceMatrix = Array(n + 1).fill(null).map(() => Array(n + 1).fill(0));
+            for (let i = 1; i <= n; i++) {
+                for (let j = 1; j <= n; j++) {
+                    if (customers[i] && customers[j]) {
+                        distanceMatrix[i][j] = calculateDistance(customers[i], customers[j]);
+                    }
+                }
+            }
+            
+            return { depot, customerNodes, vehicleCapacities, distanceMatrix };
+        }
+        
+        
+        // --- 3. `initial_solution.js` (MODIFIED) ---
+        function createInitialSolution(depot, customers, vehicleCapacities) {
+            let solution = [];
+            let unassignedCustomers = [...customers];
+            const numVehicles = vehicleCapacities.length;
+            
+            while (unassignedCustomers.length > 0) {
+                solution = [];
+                unassignedCustomers = [...customers];
+                shuffleArray(unassignedCustomers);
+                
+                for (let i = 0; i < numVehicles; i++) {
+                    let tour = [depot];
+                    let currentDemand = 0;
+                    const vehicleCapacity = vehicleCapacities[i]; // Use specific capacity
+                    
+                    let customersToRemove = [];
+                    for (const customer of unassignedCustomers) {
+                        if (currentDemand + customer.demand <= vehicleCapacity) {
+                            tour.push(customer);
+                            currentDemand += customer.demand;
+                            customersToRemove.push(customer);
+                        }
+                    }
+                    
+                    unassignedCustomers = unassignedCustomers.filter(c => !customersToRemove.includes(c));
+                    tour.push(depot);
+                    solution.push(tour);
+                }
+                
+                if (unassignedCustomers.length > 0) {
+                    console.warn("Failed to assign all customers. Retrying...");
+                    // Simple safeguard against infinite loop if problem is impossible
+                    if (solution.flat().length === numVehicles * 2) {
+                        throw new Error("Failed to assign any customers. Check vehicle capacities and customer demands.");
+                    }
+                }
+            }
+            return solution;
+        }
+
+        // --- 4. `local_search.js` (MODIFIED) ---
+        async function localSearchBySwapping(solution, vehicleCapacities, distMatrix, initialCost, logCostUpdate) {
+            let improved = true;
+            let currentSolution = JSON.parse(JSON.stringify(solution));
+            let bestLsCost = initialCost;
+            let lsIter = 0;
+
+            while (improved) {
+                improved = false;
+                
+                for (let r1Idx = 0; r1Idx < currentSolution.length; r1Idx++) {
+                    for (let c1Idx = 1; c1Idx < currentSolution[r1Idx].length - 1; c1Idx++) {
+                        for (let r2Idx = r1Idx; r2Idx < currentSolution.length; r2Idx++) {
+                            
+                            let startC2Idx = (r1Idx === r2Idx) ? c1Idx + 1 : 1;
+                            
+                            for (let c2Idx = startC2Idx; c2Idx < currentSolution[r2Idx].length - 1; c2Idx++) {
+                                const route1 = currentSolution[r1Idx];
+                                const route2 = currentSolution[r2Idx];
+                                
+                                const cust1 = route1[c1Idx];
+                                const cust2 = route2[c2Idx];
+                                
+                                // MODIFIED: Check heterogeneous capacity
+                                if (r1Idx !== r2Idx) {
+                                    const r1NewDemand = calculateRouteDemand(route1) - cust1.demand + cust2.demand;
+                                    const r2NewDemand = calculateRouteDemand(route2) - cust2.demand + cust1.demand;
+                                    
+                                    if (r1NewDemand > vehicleCapacities[r1Idx] || r2NewDemand > vehicleCapacities[r2Idx]) {
+                                        continue;
+                                    }
+                                }
+
+                                const c1Prev = route1[c1Idx - 1];
+                                const c1Next = route1[c1Idx + 1];
+                                const c2Prev = route2[c2Idx - 1];
+                                const c2Next = route2[c2Idx + 1];
+                                
+                                let costRemoved = 0;
+                                let costAdded = 0;
+                                
+                                if (r1Idx === r2Idx) {
+                                    if (c1Idx + 1 === c2Idx) { // Adjacent
+                                        costRemoved = distMatrix[c1Prev.id][cust1.id] + distMatrix[cust1.id][cust2.id] + distMatrix[cust2.id][c2Next.id];
+                                        costAdded = distMatrix[c1Prev.id][cust2.id] + distMatrix[cust2.id][cust1.id] + distMatrix[cust1.id][c2Next.id];
+                                    } else { // Non-adjacent
+                                        costRemoved = distMatrix[c1Prev.id][cust1.id] + distMatrix[cust1.id][c1Next.id] +
+                                                      distMatrix[c2Prev.id][cust2.id] + distMatrix[cust2.id][c2Next.id];
+                                        costAdded = distMatrix[c1Prev.id][cust2.id] + distMatrix[cust2.id][c1Next.id] +
+                                                    distMatrix[c2Prev.id][cust1.id] + distMatrix[cust1.id][c2Next.id];
+                                    }
+                                } else { // Inter-route
+                                    costRemoved = distMatrix[c1Prev.id][cust1.id] + distMatrix[cust1.id][c1Next.id] +
+                                                  distMatrix[c2Prev.id][cust2.id] + distMatrix[cust2.id][c2Next.id];
+                                    costAdded = distMatrix[c1Prev.id][cust2.id] + distMatrix[cust2.id][c1Next.id] +
+                                                distMatrix[c2Prev.id][cust1.id] + distMatrix[cust1.id][c2Next.id];
+                                }
+                                
+                                const delta = costAdded - costRemoved;
+                                
+                                if (delta < -0.0001) {
+                                    currentSolution[r1Idx][c1Idx] = cust2;
+                                    currentSolution[r2Idx][c2Idx] = cust1;
+                                    improved = true;
+                                    lsIter++;
+                                    
+                                    bestLsCost = calculateSolutionCost(currentSolution, distMatrix);
+                                    await logCostUpdate(`LS ${lsIter}`, bestLsCost, bestLsCost);
+                                    
+                                    break;
+                                }
+                            }
+                            if (improved) break;
+                        }
+                        if (improved) break;
+                    }
+                    if (improved) break;
+                }
+            }
+            return { lsSolution: currentSolution, bestLsCost: bestLsCost };
+        }
+
+        // --- 5. `tabu_search.js` (MODIFIED) ---
+        async function simpleTabuSearch(solution, vehicleCapacities, distMatrix, iters, tabuTenure, log, logCostUpdate, initialBestCost) {
+            let S_cur = JSON.parse(JSON.stringify(solution));
+            let S_best = JSON.parse(JSON.stringify(solution));
+            
+            let currentCost = calculateSolutionCost(S_cur, distMatrix);
+            let bestCost = initialBestCost;
+            
+            let tabuList = [];
+            
+            log(`Starting Tabu Search. Initial Cost: ${currentCost.toFixed(2)}`);
+
+            for (let iterNum = 0; iterNum < iters; iterNum++) {
+                
+                let bestMove = null;
+                let bestMoveDelta = Infinity;
+
+                for (let r1Idx = 0; r1Idx < S_cur.length; r1Idx++) {
+                    for (let cIdx = 1; cIdx < S_cur[r1Idx].length - 1; cIdx++) {
+                        const customerToMove = S_cur[r1Idx][cIdx];
+                        
+                        for (let r2Idx = 0; r2Idx < S_cur.length; r2Idx++) {
+                            for (let insertPos = 1; insertPos < S_cur[r2Idx].length; insertPos++) {
+                                
+                                if (r1Idx === r2Idx && (cIdx === insertPos || cIdx + 1 === insertPos)) {
+                                    continue;
+                                }
+                                
+                                // MODIFIED: Check heterogeneous capacity
+                                if (r1Idx !== r2Idx) {
+                                    if (calculateRouteDemand(S_cur[r2Idx]) + customerToMove.demand > vehicleCapacities[r2Idx]) {
+                                        continue;
+                                    }
+                                }
+
+                                const cPrev = S_cur[r1Idx][cIdx - 1];
+                                const cNext = S_cur[r1Idx][cIdx + 1];
+                                const costRemoved = distMatrix[cPrev.id][customerToMove.id] + 
+                                                  distMatrix[customerToMove.id][cNext.id] - 
+                                                  distMatrix[cPrev.id][cNext.id];
+                                
+                                const insPrev = S_cur[r2Idx][insertPos - 1];
+                                const insNext = S_cur[r2Idx][insertPos];
+                                const costAdded = distMatrix[insPrev.id][customerToMove.id] + 
+                                                distMatrix[customerToMove.id][insNext.id] - 
+                                                distMatrix[insPrev.id][insNext.id];
+                                
+                                const delta = costAdded - costRemoved;
+                                const isTabu = tabuList.includes(customerToMove.id);
+                                const aspirationMet = currentCost + delta < bestCost;
+
+                                if (aspirationMet) {
+                                    if (delta < bestMoveDelta) {
+                                        bestMove = { r1Idx, cIdx, r2Idx, insertPos, delta };
+                                        bestMoveDelta = delta;
+                                    }
+                                } else if (!isTabu) {
+                                    if (delta < bestMoveDelta) {
+                                        bestMove = { r1Idx, cIdx, r2Idx, insertPos, delta };
+                                        bestMoveDelta = delta;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                if (bestMove) {
+                    const { r1Idx, cIdx, r2Idx, insertPos, delta } = bestMove;
+                    
+                    const customerToMove = S_cur[r1Idx].splice(cIdx, 1)[0];
+                    
+                    if (r1Idx === r2Idx) {
+                        if (cIdx < insertPos) {
+                            S_cur[r2Idx].splice(insertPos - 1, 0, customerToMove);
+                        } else {
+                            S_cur[r2Idx].splice(insertPos, 0, customerToMove);
+                        }
+                    } else {
+                        S_cur[r2Idx].splice(insertPos, 0, customerToMove);
+                    }
+                    
+                    currentCost += delta;
+                    
+                    tabuList.push(customerToMove.id);
+                    if (tabuList.length > tabuTenure) {
+                        tabuList.shift();
+                    }
+                    
+                    if (currentCost < bestCost) {
+                        bestCost = currentCost;
+                        S_best = JSON.parse(JSON.stringify(S_cur));
+                        log(`  Iter ${iterNum}: New Best Cost = ${bestCost.toFixed(2)}`);
+                    }
+                }
+                
+                await logCostUpdate(`TS ${iterNum}`, currentCost, bestCost);
+            }
+            
+            await logCostUpdate(`TS ${iters}`, currentCost, bestCost);
+            
+            return { tsSolution: S_best, tsBestCost: bestCost };
+        }
+
+        // --- 6. `visualizer.js` ---
+        function plotRouteSolution(solution, allNodes, vehicleCapacities) {
+            routePlotPlaceholder.classList.add('hidden');
+            const canvas = document.getElementById('solution-chart');
+            const ctx = canvas.getContext('2d');
+            
+            if (routeSolutionChart) {
+                routeSolutionChart.destroy();
+            }
+
+            const datasets = [];
+            const depot = solution[0][0];
+
+            datasets.push({
+                label: 'Depot',
+                data: [{ x: depot.x, y: depot.y }],
+                backgroundColor: 'black',
+                pointStyle: 'rectRot',
+                radius: 10,
+            });
+
+            solution.forEach((route, i) => {
+                const color = `hsl(${(i * 360 / solution.length) % 360}, 70%, 50%)`;
+                const routeData = route.map(cust => ({ x: cust.x, y: cust.y }));
+                
+                const capacity = vehicleCapacities[i];
+                
+                datasets.push({
+                    label: `Route ${i + 1} (Cap: ${capacity})`,
+                    data: routeData,
+                    borderColor: color,
+                    backgroundColor: 'transparent',
+                    showLine: true,
+                    tension: 0.1,
+                    pointRadius: 5,
+                    pointBackgroundColor: color
+                });
+
+                route.forEach(cust => {
+                    if (cust.id !== depot.id) {
+                        datasets.push({
+                            label: `Cust ${cust.id}`,
+                            data: [{ x: cust.x, y: cust.y, id: cust.id, demand: cust.demand }],
+                            pointRadius: 0,
+                            datalabels: {
+                                formatter: (context) => context.data.id,
+                                color: '#333',
+                                anchor: 'bottom',
+                                align: 'top',
+                                font: { size: 10 }
+                            }
+                        });
+                    }
+                });
+            });
+            
+            if (!datalabelPluginRegistered) {
+                Chart.plugins.register({
+                    id: 'datalabels',
+                    afterDatasetsDraw: function(chart) {
+                        const ctx = chart.ctx;
+                        chart.data.datasets.forEach(function(dataset, i) {
+                            if (dataset.datalabels) {
+                                const meta = chart.getDatasetMeta(i);
+                                meta.data.forEach(function(element, index) {
+                                    const data = dataset.data[index];
+                                    const label = data.id;
+                                    
+                                    ctx.fillStyle = dataset.datalabels.color || 'black';
+                                    ctx.font = '10px sans-serif';
+                                    ctx.textAlign = 'center';
+                                    ctx.textBaseline = 'bottom';
+                                    
+                                    ctx.fillText(label, element.getCenterPoint().x, element.getCenterPoint().y - 8);
+                                });
+                            }
+                        });
+                    }
+                });
+                datalabelPluginRegistered = true;
+            }
+
+            routeSolutionChart = new Chart(ctx, {
+                type: 'scatter',
+                data: {
+                    datasets: datasets
+                },
+                options: {
+                    plugins: {
+                        datalabels: {
+                            display: false
+                        }
+                    },
+                    legend: {
+                        labels: {
+                            filter: (item) => item.text && (item.text.includes('Route') || item.text.includes('Depot'))
+                        }
+                    },
+                    tooltips: {
+                        callbacks: {
+                            label: function(tooltipItem, data) {
+                                const dsLabel = data.datasets[tooltipItem.datasetIndex].label;
+                                if (dsLabel.includes('Cust')) return null;
+                                
+                                const point = data.datasets[tooltipItem.datasetIndex].data[tooltipItem.index];
+                                const cust = allNodes.find(c => c.x === point.x && c.y === point.y);
+                                
+                                if (!cust) return dsLabel;
+                                if (cust.id === depot.id) return "Depot";
+                                
+                                return `Cust ${cust.id} (Demand: ${cust.demand})`;
+                            }
+                        }
+                    },
+                    scales: {
+                        xAxes: [{
+                            type: 'linear',
+                            position: 'bottom',
+                            scaleLabel: {
+                                display: true,
+                                labelString: 'X Coordinate'
+                            }
+                        }],
+                        yAxes: [{
+                            scaleLabel: {
+                                display: true,
+                                labelString: 'Y Coordinate'
+                            }
+                        }]
+                    }
+                }
+            });
+            
+            downloadPdfBtn.classList.remove('hidden');
+        }
+        
+        // --- Initialize Input Mode ---
+        setInputMode('file'); // Default to file upload
+        
+    </script>
+</body>
+</html>
+
