@@ -1,8 +1,8 @@
 from flask_cors import CORS
-from flask import Flask, request, jsonify, send_from_directory
 import contextlib
 import os
 import io
+from flask import Flask, request, jsonify, send_from_directory
 
 # Import your existing solver functions
 from data_loader import load_cvrp_instance
