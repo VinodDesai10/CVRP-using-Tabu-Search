@@ -1,3 +1,5 @@
+import matplotlib
+matplotlib.use('Agg')   
 import matplotlib.pyplot as plt
 import os
 
@@ -48,8 +50,8 @@ def plot_solution(solution, instance_name="CVRP Solution"):
     
     # Create an output filename based on the instance name
     # e.g., "E-n23-k3.vrp" becomes "E-n23-k3_solution.png"
-    base_name = os.path.splitext(instance_name)[0]
-    save_path = f"{base_name}_solution.png"
+    base_name = os.path.splitext(os.path.basename(instance_name))[0]
+    save_path = os.path.join(os.path.dirname(__file__), 'static', f"{base_name}_solution.png")
     
     # Save the figure to a file
     plt.savefig(save_path)
